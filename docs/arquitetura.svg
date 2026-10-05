@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 560" font-family="Arial, Helvetica, sans-serif" font-size="14">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#333"/></marker>
+  </defs>
+  <rect width="1000" height="560" fill="#fff"/>
+  <text x="500" y="28" text-anchor="middle" font-size="18" font-weight="bold">Arquitetura — Predição do BTC-USD com Docker (diagrama de componentes)</text>
+
+  <!-- Docker Compose boundary -->
+  <rect x="20" y="50" width="960" height="400" rx="10" fill="none" stroke="#888" stroke-dasharray="6 4"/>
+  <text x="34" y="72" fill="#555" font-size="12">docker-compose (rede local do host)</text>
+
+  <!-- Fonte de dados -->
+  <rect x="40" y="130" width="170" height="80" fill="#fff7d6" stroke="#333"/>
+  <text x="125" y="160" text-anchor="middle" font-weight="bold">«dados»</text>
+  <text x="125" y="180" text-anchor="middle">btc_usd_daily.csv</text>
+  <text x="125" y="198" text-anchor="middle" font-size="12">(Yahoo Finance / yfinance)</text>
+
+  <!-- Trainer -->
+  <rect x="270" y="110" width="210" height="120" fill="#dff0ff" stroke="#333"/>
+  <text x="375" y="136" text-anchor="middle" font-weight="bold">«container»</text>
+  <text x="375" y="156" text-anchor="middle" font-weight="bold">trainer</text>
+  <text x="375" y="180" text-anchor="middle" font-size="12">train.py (Ridge, split cronológico)</text>
+  <text x="375" y="198" text-anchor="middle" font-size="12">common/features.py</text>
+  <text x="375" y="216" text-anchor="middle" font-size="12">roda e encerra</text>
+
+  <!-- Volume -->
+  <ellipse cx="375" cy="330" rx="110" ry="42" fill="#e6f7e6" stroke="#333"/>
+  <text x="375" y="318" text-anchor="middle" font-weight="bold">«volume» ./models</text>
+  <text x="375" y="338" text-anchor="middle" font-size="12">model.joblib (artefato)</text>
+  <text x="375" y="354" text-anchor="middle" font-size="12">metrics.json</text>
+
+  <!-- Backend -->
+  <rect x="590" y="260" width="210" height="140" fill="#dff0ff" stroke="#333"/>
+  <text x="695" y="286" text-anchor="middle" font-weight="bold">«container»</text>
+  <text x="695" y="306" text-anchor="middle" font-weight="bold">backend (FastAPI)</text>
+  <text x="695" y="330" text-anchor="middle" font-size="12">carrega model.joblib no startup</text>
+  <text x="695" y="348" text-anchor="middle" font-size="12">GET /health · GET /model-info</text>
+  <text x="695" y="366" text-anchor="middle" font-size="12">POST /predict</text>
+  <text x="695" y="384" text-anchor="middle" font-size="12">porta 8000</text>
+
+  <!-- Cliente -->
+  <rect x="830" y="110" width="140" height="80" fill="#ffe6e6" stroke="#333"/>
+  <text x="900" y="140" text-anchor="middle" font-weight="bold">«aplicação»</text>
+  <text x="900" y="160" text-anchor="middle">Cliente</text>
+  <text x="900" y="178" text-anchor="middle" font-size="12">curl / app</text>
+
+  <!-- Arrows -->
+  <line x1="210" y1="170" x2="270" y2="170" stroke="#333" stroke-width="1.5" marker-end="url(#a)"/>
+  <text x="240" y="160" text-anchor="middle" font-size="11">lê</text>
+  <line x1="375" y1="230" x2="375" y2="288" stroke="#333" stroke-width="1.5" marker-end="url(#a)"/>
+  <text x="385" y="262" font-size="12">1. grava artefato</text>
+  <line x1="485" y1="330" x2="590" y2="330" stroke="#333" stroke-width="1.5" marker-end="url(#a)"/>
+  <text x="537" y="318" text-anchor="middle" font-size="12">2. leitura (:ro)</text>
+  <line x1="830" y1="170" x2="760" y2="260" stroke="#333" stroke-width="1.5" marker-end="url(#a)"/>
+  <text x="786" y="212" text-anchor="end" font-size="12">3. HTTP POST /predict</text>
+  <line x1="780" y1="260" x2="850" y2="190" stroke="#333" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#a)"/>
+  <text x="868" y="238" font-size="12">4. JSON com</text>
+  <text x="868" y="253" font-size="12">predição</text>
+
+  <!-- Nota -->
+  <rect x="40" y="470" width="920" height="70" fill="#f5f5f5" stroke="#aaa"/>
+  <text x="55" y="494" font-size="13">depends_on (service_completed_successfully): o backend só sobe depois que o trainer termina e grava o artefato.</text>
+  <text x="55" y="514" font-size="13">O modelo chega ao container de inferência pelo volume compartilhado ./models (trainer: escrita, backend: somente leitura).</text>
+  <text x="55" y="532" font-size="13">common/features.py é copiado para os dois containers para garantir as mesmas features no treino e na inferência.</text>
+</svg>

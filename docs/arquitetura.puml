@@ -1,0 +1,15 @@
+@startuml
+skinparam componentStyle rectangle
+node "docker-compose" {
+  component "trainer\n(train.py, Ridge)" as T
+  database "volume ./models\nmodel.joblib + metrics.json" as V
+  component "backend FastAPI\n/health /model-info /predict" as B
+}
+artifact "btc_usd_daily.csv\n(Yahoo Finance)" as D
+actor "Cliente\n(curl / app)" as C
+D --> T : lê
+T --> V : 1. grava artefato
+V --> B : 2. leitura (:ro)
+C --> B : 3. POST /predict
+B --> C : 4. JSON com predição
+@enduml

@@ -1,0 +1,25 @@
+services:
+  trainer:
+    build:
+      context: .
+      dockerfile: training/Dockerfile
+    volumes:
+      - ./data:/data        # CSV de entrada (baixado automaticamente se não existir)
+      - ./models:/models    # saída: model.joblib + metrics.json
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    volumes:
+      - ./models:/models:ro # o artefato chega aqui pelo volume compartilhado
+    ports:
+      - "8000:8000"
+    depends_on:
+      trainer:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
