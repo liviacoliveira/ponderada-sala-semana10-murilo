@@ -24,6 +24,22 @@ O meu papel foi decidir o escopo a partir do enunciado, executar tudo no meu amb
 
 A solução tem duas etapas bem separadas. Na primeira, o container `trainer` prepara os dados, treina um modelo que estima o fechamento do dia seguinte do BTC-USD e salva o artefato no volume compartilhado. Na segunda, o container `backend` carrega esse artefato e responde predições por HTTP. Separei o treino do backend para que o serviço de inferência ficasse leve e fácil de testar, e para deixar explícito como o modelo é entregue de um componente ao outro.
 
+## Justificativas detalhadas
+
+Antes de implementar qualquer código, eu tive que responder algumas perguntas que orientaram todo o projeto. A primeira foi: por que Bitcoin e por que um horizonte de um dia? A resposta foi simples: o problema pede uma moeda digital e um horizonte de predição bem definido, e o fechamento do dia seguinte é um alvo fácil de interpretar, fácil de avaliar e suficiente para a atividade. Essa escolha reduziu a complexidade sem perder o foco principal, que era demonstrar a arquitetura do pipeline de ML em containers.
+
+A segunda decisão foi a fonte dos dados. Eu escolhi o Yahoo Finance por meio da biblioteca `yfinance` porque ele oferece acesso direto ao histórico diário do Bitcoin sem exigir chave de API. Isso era mais prático e mais rápido do que buscar dados em outra fonte ou depender de um arquivo externo que eu não controlasse. Como o enunciado também pede reprodutibilidade, eu deixei a lógica de baixar o CSV automaticamente se ele não existir, e também mantive esse CSV em `data/` para permitir o uso local e a execução em outros ambientes.
+
+A terceira decisão foi sobre a forma de representar as features. Em vez de usar o preço absoluto em si, eu usei razões entre preços dentro de uma janela de 7 dias. A justificativa foi que o valor do Bitcoin muda muito ao longo do tempo, e usar valores absolutos como entrada faria com que o modelo aprendesse muito mais a escala do ativo do que o padrão de movimento. Ao transformar os preços em proporções, eu consegui criar uma representação mais estável e mais adequada para um modelo linear. Esse foi um ponto importante porque ele mostra que a escolha de features foi pensada para o dado e não foi aleatória.
+
+A quarta decisão foi sobre o modelo. Eu escolhi o Ridge porque ele é simples, rápido, interpretável e serializável em um artefato `.joblib`. A atividade não exigia um modelo financeiro sofisticado nem um sistema que tentasse “adivinhar” o mercado, ela somente exigia demonstrar corretamente o fluxo completo de treinamento e inferência. O Ridge foi uma escolha natural porque ele se encaixa no escopo da atividade e porque ele também permite uma comparação honesta com o baseline do último valor.
+
+A quinta decisão foi sobre a arquitetura do projeto. Eu separei treinamento e inferência em containers diferentes porque isso deixa o processo mais fiel à lógica do problema e mais fácil de explicar. O `trainer` produz o artefato, e o `backend` consome esse artefato. Essa separação também deixa claro o papel de cada componente e reduz o risco de dependência desnecessária entre os serviços. O volume compartilhado `./models` foi a solução mais simples para entregar o artefato, e o `depends_on` do `docker-compose.yml` foi usado para garantir a ordem correta das etapas.
+
+A sexta decisão foi sobre a API. Eu escolhi FastAPI porque ele combina Python, validação automática e documentação de endpoints sem complicar a implementação. Isso foi importante porque a atividade evalua a funcionalidade real do servidor e a facilidade de testar a aplicação. Em vez de criar uma API improvisada, eu optei por uma estrutura simples, previsível e clara, com endpoints para saúde, métricas e predição.
+
+Em resumo, eu não escolhi essas decisões por exigência técnica isolada, eu as escolhi porque cada uma delas faz sentido para o problema específico da atividade. A ideia foi equilibrar simplicidade, reprodutibilidade e clareza, sem deixar de demonstrar que o sistema funciona de ponta a ponta.
+
 ## Fase 0: Planejamento
 
 Comecei lendo o enunciado e identificando o que ele cobra: treino em container ou notebook, artefato salvo, um segundo container com backend em Python que carregue o modelo, UML, devlog e uma demonstração de predição. Como a precisão do modelo não é um critério para perder nota, decidi priorizar a integração entre as partes e a possibilidade de reproduzir tudo.
