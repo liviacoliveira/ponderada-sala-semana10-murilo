@@ -4,11 +4,11 @@ Esse arquivo tem como objetivo descrever e explicar as tomadas de decisão reali
 
 ## Arquitetura da solução (UML)
 
-Antes de escrever qualquer código, desenhei a arquitetura para ter clareza de quais componentes existiriam e como os dados e o modelo circulariam entre eles. O diagrama abaixo é um diagrama de componentes e representa o fluxo completo da solução.
+Antes de escrever qualquer código, entendi que o primeiro passo deveria ser desenhar a arquitetura para ter clareza de quais componentes existiriam e como os dados e o modelo circulariam entre eles. O diagrama abaixo,feito pela IA com as minhas instruções, é um diagrama de componentes e representa o fluxo completo da solução.
 
 ![Diagrama UML da arquitetura](docs/arquitetura.png)
 
-O ponto de partida é o arquivo `btc_usd_daily.csv`, com o histórico diário de preços do BTC-USD obtido do Yahoo Finance. Esse arquivo é lido pelo container `trainer`, que roda o script `train.py`, treina o modelo e termina a execução. O resultado do treino é o artefato `model.joblib`, junto com um `metrics.json`, gravados em um volume Docker compartilhado montado em `./models`.
+Ao descrever para a Inteligência Artificial como fazer esse diagrama, identifiquei o ponto de partida como sendo o arquivo `btc_usd_daily.csv`, com o histórico diário de preços do BTC-USD obtido do Yahoo Finance. Esse arquivo é lido pelo container `trainer`, que roda o script `train.py`, treina o modelo e termina a execução. O resultado do treino é o artefato `model.joblib`, junto com um `metrics.json`, gravados em um volume Docker compartilhado montado em `./models`.
 
 Esse volume é a resposta para a pergunta de como o modelo treinado chega ao container de inferência: o `trainer` escreve nele e o container `backend` o monta em modo somente leitura, carregando o `model.joblib` quando inicia. Para garantir a ordem, configurei no `docker-compose.yml` que o backend só sobe depois que o trainer terminou com sucesso. 
 
