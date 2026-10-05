@@ -1,5 +1,7 @@
 # DEVLOG — Atividade Ponderada M7
 
+Esse arquivo tem como objetivo descrever e explicar as tomadas de decisão realizadas durante o desenvolvimento dessa atividade ponderada feitas por mim.
+
 ## Arquitetura da solução (UML)
 
 Antes de escrever qualquer código, desenhei a arquitetura para ter clareza de quais componentes existiriam e como os dados e o modelo circulariam entre eles. O diagrama abaixo é um diagrama de componentes e representa o fluxo completo da solução.
@@ -8,31 +10,33 @@ Antes de escrever qualquer código, desenhei a arquitetura para ter clareza de q
 
 O ponto de partida é o arquivo `btc_usd_daily.csv`, com o histórico diário de preços do BTC-USD obtido do Yahoo Finance. Esse arquivo é lido pelo container `trainer`, que roda o script `train.py`, treina o modelo e termina a execução. O resultado do treino é o artefato `model.joblib`, junto com um `metrics.json`, gravados em um volume Docker compartilhado montado em `./models`.
 
-Esse volume é a resposta para a pergunta de como o modelo treinado chega ao container de inferência: o `trainer` escreve nele e o container `backend` o monta em modo somente leitura, carregando o `model.joblib` quando inicia. Para garantir a ordem, configurei no `docker-compose.yml` que o backend só sobe depois que o trainer terminou com sucesso. O backend é uma API em FastAPI com três rotas, `/health`, `/model-info` e `/predict`, exposta na porta 8000. Por fim, o cliente (uma requisição `curl` ou qualquer aplicação) envia um POST para `/predict` com os últimos preços e recebe um JSON com a predição do fechamento do dia seguinte.
+Esse volume é a resposta para a pergunta de como o modelo treinado chega ao container de inferência: o `trainer` escreve nele e o container `backend` o monta em modo somente leitura, carregando o `model.joblib` quando inicia. Para garantir a ordem, configurei no `docker-compose.yml` que o backend só sobe depois que o trainer terminou com sucesso. 
+
+O backend é uma API em FastAPI com três rotas, `/health`, `/model-info` e `/predict`, exposta na porta 8000. Por fim, o cliente (uma requisição `curl` ou qualquer aplicação) envia um POST para `/predict` com os últimos preços e recebe um JSON com a predição do fechamento do dia seguinte.
 
 ## Como usei IA neste trabalho
 
-Usei o Claude (Anthropic) como ferramenta de apoio durante a atividade e quero registrar onde isso aconteceu. Ele me ajudou a organizar o trabalho em fases seguindo a divisão de tempo do enunciado e a definir a estrutura de pastas do repositório. Ele também gerou a primeira versão do código de treino (`training/train.py`) e da lógica de features (`common/features.py`), incluindo a proposta de usar razões de preço em vez de preços absolutos e de usar o Ridge como modelo, além da primeira versão do backend (`backend/app.py`), dos Dockerfiles, do `docker-compose.yml`, do diagrama UML e do rascunho do README e do devlog.
+Usei o Claude (Anthropic) como ferramenta de apoio durante a atividade e quero registrar onde isso aconteceu. Ele me ajudou a organizar o trabalho em fases seguindo a divisão de tempo do enunciado e a definir a estrutura de pastas do repositório. Ele também gerou a primeira versão do código de treino (`training/train.py`) e da lógica de features (`common/features.py`), incluindo a proposta de usar razões de preço em vez de preços absolutos e de usar o Ridge como modelo, além da primeira versão do backend (`backend/app.py`), dos Dockerfiles, do `docker-compose.yml`, e do diagrama UML.
 
-O meu papel foi decidir o escopo a partir do enunciado, executar tudo no meu ambiente, testar cada componente, conferir os resultados, tirar as evidências e escrever este devlog com o que realmente observei. [Complemente aqui, com suas palavras, o que você revisou, entendeu ou alterou no código.] Registro isso para que fique claro o que foi apoio da IA e o que foi execução e validação minha.
+O meu papel foi decidir o escopo a partir do enunciado, executar tudo no meu ambiente, testar cada componente, conferir os resultados, tirar as evidências e escrever esse devlog com o que realmente observei. Vou explicar melhor nas próximas seções passo a passo.
 
 ## Resumo da solução
 
 A solução tem duas etapas bem separadas. Na primeira, o container `trainer` prepara os dados, treina um modelo que estima o fechamento do dia seguinte do BTC-USD e salva o artefato no volume compartilhado. Na segunda, o container `backend` carrega esse artefato e responde predições por HTTP. Separei o treino do backend para que o serviço de inferência ficasse leve e fácil de testar, e para deixar explícito como o modelo é entregue de um componente ao outro.
 
-## Fase 0 — Planejamento
+## Fase 0: Planejamento
 
-Comecei lendo o enunciado e identificando o que ele cobra: treino em container ou notebook, artefato salvo, um segundo container com backend em Python que carregue o modelo, UML, devlog e uma demonstração de predição. Como a precisão do modelo não é critério punitivo, decidi priorizar a integração entre as partes e a possibilidade de reproduzir tudo.
+Comecei lendo o enunciado e identificando o que ele cobra: treino em container ou notebook, artefato salvo, um segundo container com backend em Python que carregue o modelo, UML, devlog e uma demonstração de predição. Como a precisão do modelo não é um critério para perder nota, decidi priorizar a integração entre as partes e a possibilidade de reproduzir tudo.
 
-Segui a recomendação do próprio enunciado para fechar o escopo: moeda BTC-USD, dados diários de fechamento, horizonte de um dia e separação cronológica entre treino e teste. Escolhi o `yfinance` como fonte porque não exige chave de API e gera um CSV que fica salvo no projeto.
+Segui a recomendação do próprio enunciado para fechar o escopo: moeda BTC-USD, dados diários de fechamento, horizonte de um dia e separação cronológica entre treino e teste. Escolhi o `yfinance` como fonte porque não exige chave de API e gera um CSV que fica salvo no projeto, o que facilitou bastante o processo.
 
-## Fase 1 — Dados, features e modelo
+## Fase 1: Dados, features e modelo
 
 O ponto mais importante foi decidir como representar os dados. O preço do Bitcoin mudou muito de escala desde 2018, então usar o valor absoluto como entrada distorceria a relação que o modelo tenta aprender. Por isso as features são razões entre preços dentro de uma janela de 7 dias, ou seja, o preço de cada dia anterior dividido pelo preço do dia atual. O alvo é a razão entre o fechamento do dia seguinte e o do dia atual, e a predição final é o último fechamento multiplicado pela razão prevista.
 
 O modelo escolhido foi o Ridge, uma regressão linear regularizada. Ele é simples, rápido, fácil de explicar e se salva bem em formato `.joblib`, o que combina com o objetivo da atividade de demonstrar a integração. Também comparei o resultado com um baseline de "amanhã = hoje", porque em séries financeiras um modelo pode parecer bom sem superar a simples repetição do último valor. A separação entre treino e teste é cronológica, com os 80% mais antigos para treinar e os 20% mais recentes para testar, sem embaralhar as linhas.
 
-## Fase 2 — Treinamento e exportação do artefato
+## Fase 2: Treinamento e exportação do artefato
 
 O treino está em `training/train.py`. O script carrega o CSV, ou o baixa pelo `yfinance` se ele não existir, ordena por data, monta as janelas de 7 dias, gera as features, separa treino e teste, treina o Ridge, calcula as métricas e salva o `model.joblib` e o `metrics.json` na pasta `models`. Executei o treino com:
 
@@ -41,7 +45,7 @@ docker compose build trainer
 docker compose run --rm trainer
 ```
 
-O dataset ficou com 3200 linhas, de 2018-01-01 até 2026-10-05, resultando em 2554 janelas de treino e 639 de teste. No conjunto de teste, o modelo teve MAE de 1404,43 e RMSE de 1982,99, enquanto o baseline teve MAE de 1397,24 e RMSE de 1977,07. Ou seja, o modelo ficou praticamente igual ao baseline, até um pouco pior. Isso é coerente com a natureza do problema: o preço diário de uma criptomoeda se comporta quase como um passeio aleatório, e os últimos 7 preços carregam pouca informação útil sobre o dia seguinte. Registro isso de forma honesta: o pipeline está correto, mas o modelo não tem poder preditivo relevante, o que não impede de cumprir o objetivo da atividade.
+O dataset ficou com 3200 linhas, de 2018-01-01 até 2026-10-05, resultando em 2554 janelas de treino e 639 de teste. No conjunto de teste, o modelo teve MAE de 1404,43 e RMSE de 1982,99, enquanto o baseline teve MAE de 1397,24 e RMSE de 1977,07. Ou seja, o modelo ficou praticamente igual ao baseline, até um pouco pior. Isso é coerente com a natureza do problema: o preço diário de uma criptomoeda se comporta quase como um passeio aleatório, e os últimos 7 preços carregam pouca informação útil sobre o dia seguinte. 
 
 A primeira evidência é a saída do treinamento no terminal, onde aparecem a quantidade de linhas, o período dos dados, as métricas e a mensagem de que o modelo foi salvo.
 
@@ -51,7 +55,7 @@ A segunda evidência mostra o conteúdo da pasta `models` depois do treino, com 
 
 ![Artefato gerado na pasta models](docs/evidencias/02-artefato-models.png)
 
-## Fase 3 — Backend de inferência
+## Fase 3: Backend de inferência
 
 O backend está em `backend/app.py`. Ao iniciar, ele carrega o `model.joblib` do volume e expõe três rotas. A rota `GET /health` informa se o serviço está ativo e se o modelo foi carregado, `GET /model-info` devolve o tamanho da janela, a versão do scikit-learn e as métricas do treino, e `POST /predict` recebe uma lista com pelo menos 7 fechamentos e devolve o próximo fechamento estimado. A rota de predição rejeita listas com menos de 7 valores e preços que não sejam positivos.
 
@@ -100,17 +104,21 @@ Por fim, testei o comportamento do backend com uma entrada inválida, enviando a
 curl -i -X POST localhost:8000/predict -H "Content-Type: application/json" -d '{"closes":[1,2]}'
 ```
 
-O backend respondeu com o status HTTP 422 e uma mensagem de erro indicando que a lista precisa ter ao menos 7 itens, em vez de tentar calcular uma predição com dados insuficientes. Esse teste mostra que a validação funciona e que a API se protege de entradas incorretas.
+O backend respondeu com o status HTTP 422 e uma mensagem de erro indicando que a lista precisa ter ao menos 7 itens, em vez de tentar calcular uma predição com dados insuficientes. Esse teste mostra que a validação funciona e que a API se protege de entradas incorretas de maneira geral.
 
 ![Teste com payload inválido](docs/evidencias/07-payload-invalido.png)
 
 ## Dificuldades
 
-[Escreva aqui, em texto corrido e com suas palavras, as dificuldades reais que você teve: o que aconteceu, qual foi a causa e como resolveu. Exemplos de pontos que costumam aparecer: erro no download dos dados pelo yfinance, porta 8000 ocupada, container que não subiu, ordem de inicialização dos serviços ou diferença de versão entre as bibliotecas. Se não houve nenhum problema técnico, descreva a dificuldade conceitual de entender por que o modelo não superou o baseline.]
+A maior dificuldade conceitual foi entender que, nesse tipo de problema, o objetivo não é necessariamente obter uma previsão financeiramente "boa" no sentido de vencer o mercado, e sim demonstrar corretamente o fluxo completo de um sistema de ML em produção. O BTC é um ativo muito volátil e o preço diário tem comportamento bastante ruidoso, então o modelo linear simples acabou ficando muito próximo do baseline de "amanhã = hoje". Em vez de interpretar isso como falha, eu entendi que esse resultado faz sentido para uma série temporal tão instável e para um problema em que a informação disponível é limitada a preços históricos. Essa foi uma revisão importante da minha expectativa inicial: a solução precisava ser correta e bem justificada, não necessariamente mais sofisticada.
+
+Outra dificuldade importante foi pensar na estrutura do problema sem quebrar o princípio da validação temporal. Em séries temporais, o erro mais comum é misturar treino e teste de uma forma que cria vazamento de informação e faz o modelo parecer melhor do que é. Para resolver isso, eu defini que o split fosse cronológico, sem embaralhamento, e que as features fossem construídas a partir de janelas temporais. Isso foi um ajuste conceitual fundamental, porque o modelo não podia ser validado como se fosse um problema supervisionado clássico de classificação ou regressão tabular.
+
+Também houve uma dificuldade prática e conceitual na definição da arquitetura: eu precisava separar treinamento e inferência de forma que o artefato do modelo fosse entregue ao backend sem duplicar lógica. A solução foi usar um volume compartilhado em Docker e manter uma única fonte de geração de features para os dois ambientes. Isso foi importante porque, se eu tivesse duplicado a lógica em treino e em inferência, o sistema ficaria mais frágil e o risco de inconsistência seria grande. Em resumo, o maior aprendizado não foi apenas "fazer o código funcionar", mas entender que a arquitetura, a escolha do modelo e a forma de validar o problema precisam seguir a lógica do negócio e do dado, e não apenas a conveniência de implementação.
 
 ## Limitações conhecidas
 
-O modelo usa apenas o preço histórico dos últimos 7 dias, sem outras informações de mercado, e não supera o baseline de "amanhã = hoje". A solução também não tem retreino automático, autenticação nem monitoramento, e a validação foi feita em um único split temporal, o que é suficiente para a atividade mas não é a avaliação mais completa para um problema financeiro. As predições são experimentais e não devem ser interpretadas como recomendação de investimento.
+O modelo usa apenas o preço histórico dos últimos 7 dias, sem outras informações de mercado, e não supera o baseline de "amanhã = hoje". A solução também não tem retreino automático, autenticação nem monitoramento, e a validação foi feita em um único split temporal, o que é suficiente para a atividade mas não é a avaliação mais completa para um problema financeiro. 
 
 ## Conclusão
 
