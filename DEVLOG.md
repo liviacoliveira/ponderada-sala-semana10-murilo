@@ -1,4 +1,4 @@
-# DEVLOG — Atividade Ponderada M7
+# DEVLOG: Atividade Ponderada M7
 
 Esse arquivo tem como objetivo descrever e explicar as tomadas de decisão realizadas durante o desenvolvimento dessa atividade ponderada feitas por mim.
 
@@ -122,4 +122,4 @@ O modelo usa apenas o preço histórico dos últimos 7 dias, sem outras informa�
 
 ## Conclusão
 
-O fluxo pedido na atividade funciona de ponta a ponta: o treino gera o artefato, ele chega ao container de inferência pelo volume compartilhado, o backend o carrega e responde predições por HTTP, tudo reproduzível com `docker compose up --build`. O desempenho do modelo é fraco, mas isso era esperado para esse tipo de problema e não era o foco da atividade. Como próximos passos, eu testaria validação walk-forward, outras features como volume e volatilidade, e outros modelos, mantendo a mesma arquitetura. [Acrescente em uma ou duas frases o que você aprendeu com a atividade.]
+O fluxo pedido na atividade funciona de ponta a ponta: o treino gera o artefato, ele chega ao container de inferência pelo volume compartilhado, o backend o carrega e responde predições por HTTP, tudo reproduzível com `docker compose up --build`. O desempenho do modelo é fraco, mas isso era esperado para esse tipo de problema e não era o foco da atividade. 
